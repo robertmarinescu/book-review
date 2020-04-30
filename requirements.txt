@@ -2,3 +2,4 @@ Flask
 Flask-Session
 psycopg2-binary
 SQLAlchemy
+git+https://github.com/rayluo/flask-session@0.3.x#egg=flask-session
