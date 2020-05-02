@@ -7,6 +7,10 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from helpers import *
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
 app = Flask(__name__)
 
 # Check for environment variable
@@ -105,11 +109,42 @@ def login():
         return render_template("login.html")
 
 
+@app.route("/logout", methods=["GET"])
+def logout():
+    """ Log out """
+    session.clear()
+    return redirect("/")
+
+
 @app.route("/", methods=["GET"])
 @login_required
 def index():
+    """ Display index page"""
+    return render_template("index.html")
 
-    return "Project 1: TODO"
+
+@app.route("/search", methods=["GET"])
+@login_required
+def search():
+    """ Search for a book """
+
+    book = request.args.get("book")
+    if not book:
+        return render_template("error.html", message="You must enter a valid book name or id or author")
+
+    query = "%"+book+"%"
+    query = query.title()
+
+    rows = db.execute("SELECT isbn, title, author, year FROM books WHERE "
+                      "isbn LIKE :query OR title LIKE :query OR author LIKE :query", {"query": query})
+
+    if rows.rowcount == 0:
+        return render_template("error.html", message="There is no book with this credentials")
+
+    books = rows.fetchall()
+    logging.debug("BOOKS: " + str(books))
+
+    return render_template("books.html", books=books)
 
 
 if __name__ == "__main__":
