@@ -25,35 +25,40 @@ db = scoped_session(sessionmaker(bind=engine))
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    """ Register user """
+
     if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        confirmation = request.form.get("confirmation")
 
         # Ensure username was submitted
-        if not request.form.get("username"):
+        if not username:
             return render_template("error.html", message="you must provide an username")
 
         # Query database for username
         userCheck = db.execute("SELECT * FROM users WHERE username = :username",
-                               {"username": request.form.get("username")}).fetchone()
+                               {"username": username}).fetchone()
 
         # Check if username already exist
         if userCheck:
             return render_template("error.html", message="username already exist")
 
         # Ensure password was submitted
-        elif not request.form.get("password"):
+        elif not password:
             return render_template("error.html", message="you must provide a password")
 
         # Ensure confirmation was submitted
-        elif not request.form.get("confirmation"):
+        elif not confirmation:
             return render_template("error.html", message="you must confirm your password")
 
         # Check passwords are equal
-        elif not request.form.get("password") == request.form.get("confirmation"):
+        elif not password == confirmation:
             return render_template("error.html", message="passwords didn't match")
 
-        hash_password = generate_password_hash(request.form.get("password"))
+        hash_password = generate_password_hash(password)
         db.execute("INSERT INTO users (username, password) VALUES(:username, :password)",
-                   {"username": request.form.get("username"),
+                   {"username": username,
                     "password": hash_password})
 
         db.commit()
@@ -69,12 +74,41 @@ def register():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    return render_template("login.html")
+    """ Login user """
+
+    # Forget any user id
+    session.clear()
+
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        if not username:
+            return render_template("error.html", message="You have to enter your username")
+        elif not password:
+            return render_template("error.html", message="You need to enter your password")
+
+        # Query database to check the username exists
+        rows = db.execute("SELECT * FROM users WHERE username = :username", {"username": username})
+        user_check = rows.fetchone()
+
+        if user_check is None or not check_password_hash(user_check[2], password):
+            return render_template("error.html", message="Invalid username or password")
+
+        # Remember users credentials
+        session["user_id"] = user_check[0]
+        session["user_name"] = user_check[1]
+
+        return redirect("/")
+
+    else:
+        return render_template("login.html")
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 @login_required
 def index():
+
     return "Project 1: TODO"
 
 
