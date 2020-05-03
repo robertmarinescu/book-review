@@ -5,9 +5,11 @@ Book Query
 {% endblock %}
 
 {% block main %}
+
 <h2>Here is what we've found...</h2>
-<div class="dropdown-divider"></div>
-<div class="container result-container">
+
+
+<div class="container results-container">
 
     {% for book in books %}
     <div class="card border-primary mb-3" style="width: 14rem">
@@ -23,4 +25,5 @@ Book Query
     </div>
     {% endfor %}
 </div>
+
 {% endblock %}
