@@ -1,11 +1,12 @@
 import os
-
+import json
 from flask import Flask, session, flash, jsonify, redirect, render_template, request, session
 from flask_session import Session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from helpers import *
 from werkzeug.security import check_password_hash, generate_password_hash
+import requests
 
 import logging
 
@@ -132,7 +133,7 @@ def search():
     if not book:
         return render_template("error.html", message="You must enter a valid book name or id or author")
 
-    query = "%"+book+"%"
+    query = "%" + book + "%"
     query = query.title()
 
     rows = db.execute("SELECT isbn, title, author, year FROM books WHERE "
@@ -144,7 +145,43 @@ def search():
     books = rows.fetchall()
     logging.debug("BOOKS: " + str(books))
 
-    return render_template("books.html", books=books)
+    return render_template("results.html", books=books)
+
+
+@app.route("/book/<isbn>", methods=["GET", "POST"])
+@login_required
+def book(isbn):
+    if request.method == "GET":
+        row = db.execute("SELECT isbn, title, author, year FROM books WHERE isbn = :isbn", {"isbn": isbn})
+
+        book_info = row.fetchall()
+        logging.debug("BOOK INFORMATION: " + str(book_info))
+
+        key = os.getenv("GOODREADS_KEY")
+        query = requests.get("https://www.goodreads.com/book/review_counts.json", params={"key": key, "isbns": isbn})
+
+        response = query.json()
+        logging.debug("RESPONSE I GET FROM THE QUERY: " + str(response))
+
+        response = response['books'][0]
+        logging.debug("QUERY_RESPONSE " + str(response))
+
+        book_info.append(response)
+        logging.debug("BOOK_INFO OUTPUTS " + str(book_info))
+
+        row = db.execute("SELECT id FROM books WHERE isbn = :isbn", {"isbn": isbn})
+
+        book = row.fetchone()
+        book = book[0]
+        logging.debug("BOOK DISPLAY INFO: " + str(book))
+
+        results = db.execute("SELECT users.username, reviews.comment, reviews.rating "
+                             "FROM users INNER JOIN reviews ON users.id = reviews.username_id  WHERE book_id = :book",
+                             {"book": book})
+
+        reviews = results.fetchall()
+
+        return render_template("book.html", bookInfo=book_info, reviews=reviews)
 
 
 if __name__ == "__main__":
