@@ -182,6 +182,28 @@ def book(isbn):
         reviews = results.fetchall()
 
         return render_template("book.html", bookInfo=book_info, reviews=reviews)
+    else:
+        user = session["user_id"]
+
+        rating = int(request.form.get("rating"))
+        comment = request.form.get("comment")
+
+        row = db.execute("SELECT id FROM books WHERE isbn = :isbn", {"isbn": isbn})
+        book_id = row.fetchone()[0]
+
+        rows = db.execute("SELECT * FROM reviews WHERE username_id = :username_id AND book_id= :book_id",
+                          {"username_id": user, "book_id": book_id})
+
+        if rows.rowcount == 1:
+            flash("You've already submitted a review to this book")
+            return redirect("/book/" + isbn)
+
+        db.execute("INSERT INTO reviews(rating, comment, username_id, book_id) "
+                   "VALUES(:rating, :comment, :username_id, :book_id)",
+                   {"rating": rating, "comment": comment, "username_id": user, "book_id": book_id})
+        db.commit()
+        flash("Review submitted")
+        return redirect("/book/" + isbn)
 
 
 if __name__ == "__main__":
