@@ -183,6 +183,48 @@ def book(isbn):
 
         return render_template("book.html", bookInfo=book_info, reviews=reviews)
 
+    else:
+
+        user = session["user_id"]
+
+        rating = int(request.form.get("rating"))
+        comment = request.form.get("comment")
+
+        row = db.execute("SELECT id FROM books WHERE isbn = :isbn", {"isbn": isbn})
+        book_id = row.fetchone()[0]
+
+        rows = db.execute("SELECT * FROM reviews WHERE username_id = :username_id AND book_id= :book_id",
+                          {"username_id": user, "book_id": book_id})
+
+        if rows.rowcount == 1:
+            flash("You've already submitted a review to this book")
+            return redirect("/book/" + isbn)
+
+        db.execute("INSERT INTO reviews(rating, comment, username_id, book_id) "
+                   "VALUES(:rating, :comment, :username_id, :book_id)",
+                   {"rating": rating, "comment": comment, "username_id": user, "book_id": book_id})
+        db.commit()
+        flash("Review submitted")
+        return redirect("/book/" + isbn)
+
+
+@app.route("/api/<isbn>", methods=["GET"])
+@login_required
+def book_api(isbn):
+    row = db.execute("SELECT title, author, year, isbn, COUNT(reviews.id) as review_count, "
+                     "AVG(reviews.rating) as average_score FROM books INNER JOIN reviews "
+                     "ON books.id = reviews.book_id WHERE isbn = :isbn GROUP BY title, author, year, isbn",
+                     {"isbn": isbn})
+
+    if row.rowcount != 1:
+        return jsonify({"Error": "Invalid book ISBN"}), 422
+
+    data = row.fetchone()
+    result = dict(data.items())
+
+    result["average_score"] = float("%.2f" % (result["average_score"]))
+
+    return jsonify(result)
 
 if __name__ == "__main__":
     app.run(debug=True)
