@@ -182,7 +182,9 @@ def book(isbn):
         reviews = results.fetchall()
 
         return render_template("book.html", bookInfo=book_info, reviews=reviews)
+
     else:
+
         user = session["user_id"]
 
         rating = int(request.form.get("rating"))
@@ -205,6 +207,24 @@ def book(isbn):
         flash("Review submitted")
         return redirect("/book/" + isbn)
 
+
+@app.route("/api/<isbn>", methods=["GET"])
+@login_required
+def book_api(isbn):
+    row = db.execute("SELECT title, author, year, isbn, COUNT(reviews.id) as review_count, "
+                     "AVG(reviews.rating) as average_score FROM books INNER JOIN reviews "
+                     "ON books.id = reviews.book_id WHERE isbn = :isbn GROUP BY title, author, year, isbn",
+                     {"isbn": isbn})
+
+    if row.rowcount != 1:
+        return jsonify({"Error": "Invalid book ISBN"}), 422
+
+    data = row.fetchone()
+    result = dict(data.items())
+
+    result["average_score"] = float("%.2f" % (result["average_score"]))
+
+    return jsonify(result)
 
 if __name__ == "__main__":
     app.run(debug=True)
